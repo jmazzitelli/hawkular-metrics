@@ -84,7 +84,7 @@ import rx.Observable;
 @Consumes(APPLICATION_JSON)
 @Produces(APPLICATION_JSON)
 @Api(tags = "Counter")
-public class CounterHandler extends MetricsServiceHandler {
+public class CounterHandler extends MetricsServiceHandler implements IMetricsHandler<Long> {
 
 //    @Inject
 //    private MetricsService metricsService;
@@ -110,7 +110,7 @@ public class CounterHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Metric creation failed due to an unexpected error",
                     response = ApiError.class)
     })
-    public void createCounter(
+    public void createMetric(
             @Suspended final AsyncResponse asyncResponse,
             @ApiParam(required = true) Metric<Long> metric,
             @ApiParam(value = "Overwrite previously created metric configuration if it exists. "
@@ -143,7 +143,7 @@ public class CounterHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Failed to retrieve metrics due to unexpected error.",
                     response = ApiError.class)
     })
-    public void findCounterMetrics(
+    public void getMetrics(
             @Suspended AsyncResponse asyncResponse,
             @ApiParam(value = "List of tags filters", required = false) @QueryParam("tags") Tags tags) {
 
@@ -172,7 +172,7 @@ public class CounterHandler extends MetricsServiceHandler {
             @ApiResponse(code = 204, message = "Query was successful, but no metrics definition is set."),
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric's definition.",
                          response = ApiError.class) })
-    public void getCounter(@Suspended final AsyncResponse asyncResponse, @PathParam("id") String id) {
+    public void getMetric(@Suspended final AsyncResponse asyncResponse, @PathParam("id") String id) {
 
         metricsService.findMetric(new MetricId<>(tenantId, COUNTER, id))
                 .compose(new MinMaxTimestampTransformer<>(metricsService))
@@ -275,7 +275,7 @@ public class CounterHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class)
     })
-    public Response findRawData(@ApiParam(required = true, value = "Query parameters that minimally must include a " +
+    public Response getData(@ApiParam(required = true, value = "Query parameters that minimally must include a " +
             "list of metric ids. The standard start, end, order, and limit query parameters are supported as well.")
             QueryRequest query) {
         return findRawDataPointsForMetrics(query, COUNTER);
@@ -292,7 +292,7 @@ public class CounterHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class)
     })
-    public Response findRateData(@ApiParam(required = true, value = "Query parameters that minimally must include a " +
+    public Response getRateData(@ApiParam(required = true, value = "Query parameters that minimally must include a " +
             "list of metric ids. The standard start, end, order, and limit query parameters are supported as well.")
             QueryRequest query) {
         return findRateDataPointsForMetrics(query, COUNTER);
@@ -318,7 +318,7 @@ public class CounterHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error happened while storing the data",
                     response = ApiError.class),
     })
-    public void addData(
+    public void addMetricData(
             @Suspended final AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "List of data points containing timestamp and value", required = true)
@@ -338,7 +338,7 @@ public class CounterHandler extends MetricsServiceHandler {
             @PathParam("id") String id,
             @ApiParam(value = "List of data points containing timestamp and value", required = true)
                 List<DataPoint<Long>> data) {
-        addData(asyncResponse, id, data);
+        addMetricData(asyncResponse, id, data);
     }
 
     @Deprecated
@@ -346,7 +346,7 @@ public class CounterHandler extends MetricsServiceHandler {
     @Path("/{id}/data")
     @ApiOperation(value = "Deprecated. Please use /raw or /stats endpoints",
                     response = DataPoint.class, responseContainer = "List")
-    public void findCounterData(
+    public void deprecatedFindCounterData(
             @Suspended AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") Long start,
@@ -458,11 +458,13 @@ public class CounterHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class)
     })
-    public void findRawCounterData(
+    public void getMetricData(
             @Suspended AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") Long start,
             @ApiParam(value = "Defaults to now") @QueryParam("end") Long end,
+            @ApiParam(value = "Use data from earliest received, subject to retention period")
+                @QueryParam("fromEarliest") Boolean fromEarliest,
             @ApiParam(value = "Limit the number of data points returned") @QueryParam("limit") Integer limit,
             @ApiParam(value = "Data point sort order, based on timestamp") @QueryParam("order") Order order
     ) {
@@ -501,7 +503,7 @@ public class CounterHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class)
     })
-    public void findStatsCounterData(
+    public void getMetricStats(
             @Suspended AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") Long start,
@@ -596,7 +598,7 @@ public class CounterHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class)
     })
-    public void findRate(
+    public void getMetricRate(
             @Suspended AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") Long start,
@@ -667,7 +669,7 @@ public class CounterHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class)
     })
-    public void findStatsRate(
+    public void getMetricStatsRate(
             @Suspended AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") Long start,
@@ -721,7 +723,7 @@ public class CounterHandler extends MetricsServiceHandler {
                     "bucketDuration parameter is required but not both.", response = ApiError.class),
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                 response = ApiError.class) })
-    public void findCounterDataStats(
+    public void getStats(
             @Suspended AsyncResponse asyncResponse,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") final Long start,
             @ApiParam(value = "Defaults to now") @QueryParam("end") final Long end,
@@ -790,7 +792,7 @@ public class CounterHandler extends MetricsServiceHandler {
             @ApiParam(value = "List of metric names", required = false) @QueryParam("metrics") List<String> metricNames,
             @ApiParam(value = "Downsample method (if true then sum of stacked individual stats; defaults to false)",
                 required = false) @DefaultValue("false") @QueryParam("stacked") Boolean stacked) {
-        findCounterDataStats(asyncResponse, start, end,
+        getStats(asyncResponse, start, end,
                 bucketsCount, bucketDuration, percentiles, tags, metricNames, stacked);
     }
 
@@ -808,7 +810,7 @@ public class CounterHandler extends MetricsServiceHandler {
                     "bucketDuration parameter is required but not both.", response = ApiError.class),
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                 response = ApiError.class) })
-    public void findCounterRateDataStats(
+    public void getRateStats(
             @Suspended AsyncResponse asyncResponse,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") final Long start,
             @ApiParam(value = "Defaults to now") @QueryParam("end") final Long end,
@@ -877,7 +879,7 @@ public class CounterHandler extends MetricsServiceHandler {
             @ApiParam(value = "List of metric names", required = false) @QueryParam("metrics") List<String> metricNames,
             @ApiParam(value = "Downsample method (if true then sum of stacked individual stats; defaults to false)",
                     required = false) @DefaultValue("false") @QueryParam("stacked") Boolean stacked) {
-        findCounterDataStats(asyncResponse, start, end, bucketsCount, bucketDuration, percentiles, tags, metricNames,
+        getStats(asyncResponse, start, end, bucketsCount, bucketDuration, percentiles, tags, metricNames,
                 stacked);
     }
 
@@ -894,7 +896,7 @@ public class CounterHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class)
     })
-    public void findStatsByTags(
+    public void getMetricStatsByTags(
             @Suspended AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") Long start,

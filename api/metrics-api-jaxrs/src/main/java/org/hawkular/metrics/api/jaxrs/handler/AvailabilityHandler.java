@@ -82,7 +82,7 @@ import rx.Observable;
 @Consumes(APPLICATION_JSON)
 @Produces(APPLICATION_JSON)
 @Api(tags = "Availability")
-public class AvailabilityHandler extends MetricsServiceHandler {
+public class AvailabilityHandler extends MetricsServiceHandler implements IMetricsHandler<AvailabilityType> {
 
     @POST
     @Path("/")
@@ -95,7 +95,7 @@ public class AvailabilityHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Metric creation failed due to an unexpected error",
                     response = ApiError.class)
     })
-    public void createAvailabilityMetric(
+    public void createMetric(
             @Suspended final AsyncResponse asyncResponse,
             @ApiParam(required = true) Metric<AvailabilityType> metric,
             @ApiParam(value = "Overwrite previously created metric configuration if it exists. "
@@ -128,7 +128,7 @@ public class AvailabilityHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Failed to retrieve metrics due to unexpected error.",
                     response = ApiError.class)
     })
-    public void findAvailabilityMetrics(
+    public void getMetrics(
             @Suspended AsyncResponse asyncResponse,
             @ApiParam(value = "List of tags filters", required = false) @QueryParam("tags") Tags tags) {
 
@@ -157,7 +157,7 @@ public class AvailabilityHandler extends MetricsServiceHandler {
             @ApiResponse(code = 204, message = "Query was successful, but no metrics definition is set."),
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric's definition.",
                          response = ApiError.class) })
-    public void getAvailabilityMetric(@Suspended final AsyncResponse asyncResponse, @PathParam("id") String id) {
+    public void getMetric(@Suspended final AsyncResponse asyncResponse, @PathParam("id") String id) {
         metricsService.findMetric(new MetricId<>(tenantId, AVAILABILITY, id))
                 .compose(new MinMaxTimestampTransformer<>(metricsService))
                 .map(metric -> Response.ok(metric).build())
@@ -242,7 +242,7 @@ public class AvailabilityHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error happened while storing the data",
                     response = ApiError.class)
     })
-    public void addAvailabilityForMetric(
+    public void addMetricData(
             @Suspended final AsyncResponse asyncResponse, @PathParam("id") String id,
             @ApiParam(value = "List of availability datapoints", required = true) List<DataPoint<AvailabilityType>> data
     ) {
@@ -260,7 +260,7 @@ public class AvailabilityHandler extends MetricsServiceHandler {
             @Suspended final AsyncResponse asyncResponse, @PathParam("id") String id,
             @ApiParam(value = "List of availability datapoints", required = true)
                     List<DataPoint<AvailabilityType>> data) {
-        addAvailabilityForMetric(asyncResponse, id, data);
+        addMetricData(asyncResponse, id, data);
     }
 
     @POST
@@ -272,7 +272,7 @@ public class AvailabilityHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error happened while storing the data",
                     response = ApiError.class)
     })
-    public void addAvailabilityData(
+    public void addData(
             @Suspended final AsyncResponse asyncResponse,
             @ApiParam(value = "List of availability metrics", required = true)
             @JsonDeserialize()
@@ -295,7 +295,7 @@ public class AvailabilityHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class)
     })
-    public Response findRawData(@ApiParam(required = true, value = "Query parameters that minimally must include a " +
+    public Response getData(@ApiParam(required = true, value = "Query parameters that minimally must include a " +
             "list of metric ids. The standard start, end, order, and limit query parameters are supported as well.")
             QueryRequest query) {
         return findRawDataPointsForMetrics(query, AVAILABILITY);
@@ -310,7 +310,7 @@ public class AvailabilityHandler extends MetricsServiceHandler {
             @ApiParam(value = "List of availability metrics", required = true)
             @JsonDeserialize() List<Metric<AvailabilityType>> availabilities
     ) {
-        addAvailabilityData(asyncResponse, availabilities);
+        addData(asyncResponse, availabilities);
     }
 
     @Deprecated
@@ -318,7 +318,7 @@ public class AvailabilityHandler extends MetricsServiceHandler {
     @Path("/{id}/data")
     @ApiOperation(value = "Deprecated. Please use /raw or /stats endpoints.", response = DataPoint.class,
             responseContainer = "List")
-    public void findAvailabilityData(
+    public void deprecatedFindAvailabilityData(
             @Suspended AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") Long start,
@@ -380,7 +380,7 @@ public class AvailabilityHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching availability data.",
                     response = ApiError.class)
     })
-    public void findRawAvailabilityData(
+    public void getMetricData(
             @Suspended AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") Long start,
@@ -427,7 +427,7 @@ public class AvailabilityHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching availability data.",
                     response = ApiError.class)
     })
-    public void findStatsAvailabilityData(
+    public void getMetricStats(
             @Suspended AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") Long start,

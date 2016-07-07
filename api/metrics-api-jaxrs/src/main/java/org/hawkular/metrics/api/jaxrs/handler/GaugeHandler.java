@@ -86,7 +86,7 @@ import rx.Observable;
 @Consumes(APPLICATION_JSON)
 @Produces(APPLICATION_JSON)
 @Api(tags = "Gauge")
-public class GaugeHandler extends MetricsServiceHandler {
+public class GaugeHandler extends MetricsServiceHandler implements IMetricsHandler<Double> {
 
     private Logger logger = Logger.getLogger(GaugeHandler.class);
 
@@ -103,7 +103,7 @@ public class GaugeHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Metric creation failed due to an unexpected error",
                     response = ApiError.class)
     })
-    public void createGaugeMetric(
+    public void createMetric(
             @Suspended final AsyncResponse asyncResponse,
             @ApiParam(required = true) Metric<Double> metric,
             @ApiParam(value = "Overwrite previously created metric configuration if it exists. "
@@ -133,7 +133,7 @@ public class GaugeHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Failed to retrieve metrics due to unexpected error.",
                     response = ApiError.class)
     })
-    public void findGaugeMetrics(
+    public void getMetrics(
             @Suspended AsyncResponse asyncResponse,
             @ApiParam(value = "List of tags filters") @QueryParam("tags") Tags tags) {
 
@@ -162,7 +162,7 @@ public class GaugeHandler extends MetricsServiceHandler {
             @ApiResponse(code = 204, message = "Query was successful, but no metrics definition is set."),
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric's definition.",
                          response = ApiError.class) })
-    public void getGaugeMetric(@Suspended final AsyncResponse asyncResponse, @PathParam("id") String id) {
+    public void getMetric(@Suspended final AsyncResponse asyncResponse, @PathParam("id") String id) {
         metricsService.findMetric(new MetricId<>(tenantId, GAUGE, id))
                 .compose(new MinMaxTimestampTransformer<>(metricsService))
                 .map(metric -> Response.ok(metric).build())
@@ -246,7 +246,7 @@ public class GaugeHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error happened while storing the data",
                     response = ApiError.class),
     })
-    public void addDataForMetric(
+    public void addMetricData(
             @Suspended final AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "List of datapoints containing timestamp and value", required = true)
@@ -267,7 +267,7 @@ public class GaugeHandler extends MetricsServiceHandler {
             @ApiParam(value = "List of datapoints containing timestamp and value", required = true)
             List<DataPoint<Double>> data
     ) {
-        addDataForMetric(asyncResponse, id, data);
+        addMetricData(asyncResponse, id, data);
     }
 
     @POST
@@ -279,7 +279,7 @@ public class GaugeHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error happened while storing the data",
                 response = ApiError.class)
     })
-    public void addGaugeData(
+    public void addData(
             @Suspended final AsyncResponse asyncResponse,
             @ApiParam(value = "List of metrics", required = true) List<Metric<Double>> gauges) {
         Observable<Metric<Double>> metrics = Functions.metricToObservable(tenantId, gauges, GAUGE);
@@ -298,7 +298,7 @@ public class GaugeHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class)
     })
-    public Response findRawData(@ApiParam(required = true, value = "Query parameters that minimally must include a " +
+    public Response getData(@ApiParam(required = true, value = "Query parameters that minimally must include a " +
             "list of metric ids. The standard start, end, order, and limit query parameters are supported as well.")
             QueryRequest query) {
         logger.debug("Fetching data points for " + query);
@@ -317,7 +317,7 @@ public class GaugeHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class)
     })
-    public Response findRateData(@ApiParam(required = true, value = "Query parameters that minimally must include a " +
+    public Response getRateData(@ApiParam(required = true, value = "Query parameters that minimally must include a " +
             "list of metric ids. The standard start, end, order, and limit query parameters are supported as well.")
             QueryRequest query) {
         return findRateDataPointsForMetrics(query, GAUGE);
@@ -331,7 +331,7 @@ public class GaugeHandler extends MetricsServiceHandler {
             @Suspended final AsyncResponse asyncResponse,
             @ApiParam(value = "List of metrics", required = true) List<Metric<Double>> gauges
     ) {
-        addGaugeData(asyncResponse, gauges);
+        addData(asyncResponse, gauges);
     }
 
     @Deprecated
@@ -347,7 +347,7 @@ public class GaugeHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class)
     })
-    public void findGaugeData(
+    public void deprecatedFindGaugeData(
             @Suspended AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") Long start,
@@ -454,7 +454,7 @@ public class GaugeHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class)
     })
-    public void findRawData(
+    public void getMetricData(
             @Suspended AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") Long start,
@@ -484,7 +484,6 @@ public class GaugeHandler extends MetricsServiceHandler {
                 .toList()
                 .map(ApiUtils::collectionToResponse)
                 .subscribe(asyncResponse::resume, t -> asyncResponse.resume(ApiUtils.serverError(t)));
-
     }
 
     @GET
@@ -500,7 +499,7 @@ public class GaugeHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class)
     })
-    public void findStatsData(
+    public void getMetricStats(
             @Suspended AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") Long start,
@@ -586,7 +585,7 @@ public class GaugeHandler extends MetricsServiceHandler {
                     response = ApiError.class),
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class) })
-    public void findStats(
+    public void getStats(
             @Suspended AsyncResponse asyncResponse,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") final Long start,
             @ApiParam(value = "Defaults to now") @QueryParam("end") final Long end,
@@ -652,7 +651,7 @@ public class GaugeHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class)
     })
-    public void findStatsByTags(
+    public void getMetricStatsByTags(
             @Suspended AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") Long start,
@@ -680,7 +679,7 @@ public class GaugeHandler extends MetricsServiceHandler {
     @Path("/data")
     @ApiOperation(value = "Deprecated. Please use /stast endpoint.",
             response = NumericBucketPoint.class, responseContainer = "List")
-    public void findData(
+    public void deprecatedFindData(
             @Suspended AsyncResponse asyncResponse,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") final Long start,
             @ApiParam(value = "Defaults to now") @QueryParam("end") final Long end,
@@ -692,7 +691,7 @@ public class GaugeHandler extends MetricsServiceHandler {
             @ApiParam(value = "Downsample method (if true then sum of stacked individual stats; defaults to false)")
             @DefaultValue("false") @QueryParam("stacked") Boolean stacked) {
 
-        findStats(asyncResponse, start, end, bucketsCount, bucketDuration, percentiles, tags, metricNames, stacked);
+        getStats(asyncResponse, start, end, bucketsCount, bucketDuration, percentiles, tags, metricNames, stacked);
     }
 
     @GET
@@ -704,7 +703,7 @@ public class GaugeHandler extends MetricsServiceHandler {
             @ApiResponse(code = 204, message = "No data was found."),
             @ApiResponse(code = 400, message = "Missing or invalid query parameters", response = ApiError.class)
     })
-    public void findPeriods(
+    public void getMetricPeriods(
             @Suspended final AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") Long start,
@@ -770,7 +769,7 @@ public class GaugeHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class)
     })
-    public void findRate(
+    public void getMetricRate(
             @Suspended AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") Long start,
@@ -813,7 +812,7 @@ public class GaugeHandler extends MetricsServiceHandler {
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class)
     })
-    public void findStatsRate(
+    public void getMetricRateStats(
             @Suspended AsyncResponse asyncResponse,
             @PathParam("id") String id,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") Long start,
@@ -867,7 +866,7 @@ public class GaugeHandler extends MetricsServiceHandler {
                     "bucketDuration parameter is required but not both.", response = ApiError.class),
             @ApiResponse(code = 500, message = "Unexpected error occurred while fetching metric data.",
                     response = ApiError.class)})
-    public void findRateDataStats(
+    public void getRateStats(
             @Suspended AsyncResponse asyncResponse,
             @ApiParam(value = "Defaults to now - 8 hours") @QueryParam("start") final Long start,
             @ApiParam(value = "Defaults to now") @QueryParam("end") final Long end,
